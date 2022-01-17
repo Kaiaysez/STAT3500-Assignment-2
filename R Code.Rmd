@@ -1,0 +1,165 @@
+---
+title: "STAT3500 Assignment 2"
+author: "Chee Kitt Win"
+date: "8/31/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+
+```{r Load data and libraries}
+insects = read.csv("C:\\Users\\Owner\\Desktop\\UQ Year 3 Sem 2 Courses\\STAT3500\\Assignment 2\\Insects.csv")
+treedims = read.csv("C:\\Users\\Owner\\Desktop\\UQ Year 3 Sem 2 Courses\\STAT3500\\Assignment 2\\treedims.csv")
+cancer = read.csv("C:\\Users\\Owner\\Desktop\\UQ Year 3 Sem 2 Courses\\STAT3500\\Assignment 2\\cancer.csv", stringsAsFactors = TRUE)
+library(lattice)
+library(ggplot2)
+```
+
+### Basic exploratory data analysis
+
+```{r Summary statistics}
+summary(insects)
+head(insects)
+plot(insects)
+```
+
+### 1. a)
+### For both sexes considered individually, the relationship between proportion of dead insects and dose looks very much like a log relationship. As expected, when we plot against logdose instead, we get a straight line and the relationship is roughly linear. From the plots, it seems like female insects might be more resistant to the chemical spray, but more analysis needs to be done to determine whether or not this is true.
+
+```{r Question 1 Part a)}
+
+insects$Proportion <- insects$Dead/insects$Total
+qplot(Dose, Proportion, data = insects, color = Sex, main = "Plot of proportion of dead insects against Dose")
+qplot(log(Dose), Proportion, data = insects, color = Sex, main = "Plot of proportion of dead insects against log(Dose)")
+
+# split_by_sex <- split(insects, insects$Sex)
+# plot(split_by_sex$female$Dose,split_by_sex$female$Proportion, xlab = "Dose", ylab = "Proportion of dead female insects", main = "Plot of proportion of dead female insects vs dose")
+# plot(split_by_sex$male$Dose,split_by_sex$male$Proportion, xlab = "Dose", ylab = "Proportion of dead male insects", main = "Plot of proportion of dead male insects vs dose")
+# plot(log(split_by_sex$female$Dose),split_by_sex$female$Proportion, xlab = "log(Dose)", ylab = "Proportion of dead female insects", main = "Plot of proportion of dead female insects vs log(dose)")
+# plot(log(split_by_sex$male$Dose),split_by_sex$male$Proportion, xlab = "log(Dose)", ylab = "Proportion of dead male insects",main = "Plot of proportion of dead male insects vs log(dose)")
+```
+
+### 1. b)
+### Below, we can see that the coefficient of the interaction term, sex*logdose has a p value of 0.191. This means that there is insufficient evidence to say that effect of logdose on the number of insects dead significantly differs between male and female insects. Despite the presence of the interaction term in the model, the coefficients of the other explanatory variables have very small p values which implies they have a significant effect on the number of insects alive (But this should checked again after dropping the interaction term). From the analysis of deviance table we see that log(Dose) has the largest effect on the response since the residual deviance drops by almost 95% after including log(Dose). Adding the interaction term into the model made hardly any reduction in the residual deviance, which indicates almost no improvement to the model. Applying a goodness of fit test, we get a p value of 1.753042e-13, which indicates a good fit.
+```{r}
+insects$Alive = insects$Total - insects$Dead
+response = cbind(insects$Dead, insects$Alive)
+insects.int <- glm(response ~ 0 + Sex + log(Dose) + Sex * log(Dose), data = insects, family = binomial)
+summary(insects.int)
+anova(insects.int, test = "Chisq")
+1 - pchisq(insects.int$null.deviance-insects.int$deviance,insects.int$df.null,insects.int$df.residual)
+```
+### 1. c)
+### The p value of the Chi squared statistic is 0.1842. The interpretation is that the model with the interaction term does not result in a significant improvement to the fit.
+
+```{r}
+
+insects.main <- glm(response ~ 0 + Sex + log(Dose), data = insects, family = binomial)
+summary(insects.main)
+anova(insects.main, test ="Chisq")
+```
+```{r}
+anova(insects.main, insects.int, test = "Chisq")
+```
+
+### 1. d)
+### We have established that there is unlikely to be any interactions between sex and logdose, and so we can safely look at our main effects model. The significant P values for sexmale and sexfemale implies that yes, sex has a significant effect on the probability of an insect dying. 
+
+### 1. e) 
+### For this part, the question said to compare the p value in the analysis of deviance in part c), with the p value reported in the summary of model output for part b). In my audio recorded answer, I took this to mean the p value of the interaction term in part b).
+
+### 2. a)
+### See pdf file 
+
+### 2. b)
+### Graphically exploring the data
+```{r}
+summary(treedims)
+head(treedims)
+plot(treedims)
+hist(treedims$Volume, main ="Histogram of Volume", xlim = c(0,90), ylim = c(0,15))
+densityplot(treedims$Volume, main ="Density plot of Volume")
+```
+
+
+### Fitting the model specified
+```{r}
+treedims.main <- glm(Volume ~ log(Height) + log(Diameter), data = treedims, family = gaussian(link =log))
+summary(treedims.main)
+anova(treedims.main)
+```
+
+### Commenting on model output
+
+### The p values for log(height) and log(diameter) are both very significant implying that they after conducting a t-test, there is extremely strong evidence for rejecting the null (that the coefficients = 0). log(Diameter) especially contributes to the fit of the model as can be seen by the large drop in residual deviance after log(diameter) is added to the deviance table.   
+
+### For the expression for the fitted model, see the pdf file.
+
+### 2. c)
+### We know the data is continuous and non-negative and from the histogram of Volume, we see that it is skewed to the right which suggests that a glm with a gamma distribution for V might be a good choice. We can use the log link, and similarly to what we did in 2 a), we will be able to obtain the form we want: g(mu) = X_transpose * B. 
+
+
+### 3.
+### First, some exploratory data analysis
+```{r}
+summary(cancer)
+head(cancer)
+library(ggplot2)
+str(cancer)
+p <- ggplot(data = cancer, aes(x = factor(malignant),y = counts, fill = factor(died))) + facet_wrap(~center) + geom_bar(stat="identity") + scale_color_discrete(labels = c(var1 = "Custom Value 1", var2 = "Custom Value 2", var3 = "Custom Value 3"))
+p + xlab("0: Non-Malignant\n1: Malignant") + labs(title = "Stacked bar chart comparing cancer treatment in center A and center B" ,fill = "0: Survived\n1: Died")
+```
+
+### 3. a)
+### Since we are fitting a saturated model, as expected the residual deviance is almost 0 with 0 degrees of freedom. The p value of malignant:centerB:died is 0.76645 which indicates that there is no evidence to suggest a third order interaction. We can then look at the second order terms. Only malignant:centerB has a significant P value, but it is possible that the other second order terms' p values will become significant after removing the third order interaction term (so we have to test this by dropping the third order interaction term).   
+
+```{r}
+glm.poisson = glm(counts ~ malignant*center*died, data = cancer, family = poisson)
+summary(glm.poisson)
+anova(glm.poisson, test = "Chisq")
+```
+
+
+### 3. b)
+### Model 2:
+### As mentioned in part a), the third order term is not significant as seen by its p value, so it is removed from the model. Refitting the model with the third order interaction term removed, we see that now only centerB:died is insignificant. 
+
+### Model 3: 
+### Removing centerB:died from the model, our variables are now all significant except for malignant:died, which is now borderline significant with a p value of 0.0571. 
+
+### Model 4:
+### Refitting another model with malignant:died removed, we get a model with all variables having significant p values. 
+
+### Since Model 3 has a lower AIC than Model 4, with a difference in AIC of 1.62, therefore I have chosen Model 3 as my final model.
+
+
+```{r}
+glm.poisson2 = glm(counts ~ (malignant + center + died)^2, data = cancer, family = poisson)
+summary(glm.poisson2)
+anova(glm.poisson2, test = "Chisq")
+```
+```{r}
+glm.poisson3 = glm(counts ~ malignant + center + died + malignant*center + malignant*died, data = cancer, family = poisson)
+summary(glm.poisson3)
+anova(glm.poisson3, test = "Chisq")
+1 - pchisq(glm.poisson3$null.deviance-glm.poisson3$deviance,glm.poisson3$df.null,glm.poisson3$df.residual)
+```
+```{r}
+glm.poisson4 = glm(counts ~ malignant + center + died + malignant*center, data = cancer, family = poisson)
+summary(glm.poisson4)
+anova(glm.poisson4, test = "Chisq")
+1 - pchisq(glm.poisson4$null.deviance-glm.poisson4$deviance,glm.poisson4$df.null,glm.poisson4$df.residual)
+```
+
+### 3. c)
+### The estimated dispersion parameter is 0.298. This means that Model 3 had severe underdispersion (due to the varriance being constrained by the mean, since with a poisson distribution, mean = variance). By relaxing this condition, the quasipoisson distribution has accounted for the different variance so that the model fits better.
+```{r}
+glm.quasipoisson = glm(counts ~ malignant + center + died + malignant*center + malignant*died, data = cancer, family = quasipoisson)
+summary(glm.quasipoisson)
+1 - pchisq(glm.quasipoisson$null.deviance-glm.quasipoisson$deviance,glm.quasipoisson$df.null,glm.quasipoisson$df.residual)
+```
+
